@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stock Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body style="font-family:Arial; display:flex;">
+
+    <!-- LEFT SIDEBAR -->
+    <div style="width:200px; border-right:1px solid #ccc; padding:10px;">
+        <h3>Companies</h3>
+        <button onclick="loadData('RELIANCE')">RELIANCE</button><br><br>
+        <button onclick="loadData('TCS')">TCS</button><br><br>
+        <button onclick="loadData('HDFC')">HDFC</button><br><br>
+        <button onclick="loadData('SBIN')">SBIN</button><br><br>
+
+        <h3>Filter</h3>
+        <select id="dayFilter" onchange="reloadCurrent()">
+            <option value="30">Last 30 Days</option>
+            <option value="90">Last 90 Days</option>
+        </select>
+    </div>
+
+    <!-- MAIN CHART -->
+    <div style="flex:1; padding:20px;">
+        <h2 id="title">Select a company</h2>
+        <canvas id="chart" width="900" height="400"></canvas>
+    </div>
+
+
+<script>
+    let chart;
+    let currentSymbol = null;
+
+    async function loadData(symbol) {
+        currentSymbol = symbol;
+        const days = document.getElementById("dayFilter").value;
+        document.getElementById("title").innerText = symbol + " Chart (" + days + " days)";
+
+        // fetch price data
+        const res = await fetch("http://127.0.0.1:8000/data/" + symbol);
+        const data = await res.json();
+
+        let sliced = data.slice(0, days);
+        const labels = sliced.map(row => row.date.slice(0,10)).reverse();
+        const prices = sliced.map(row => row.close).reverse();
+
+        // fetch prediction
+        const predRes = await fetch("http://127.0.0.1:8000/predict/" + symbol);
+        const pred = await predRes.json();
+        const predictedValue = pred.predicted_next_close;
+
+        // add prediction point
+        labels.push("NEXT");
+        const pricesPred = prices.slice();
+        pricesPred.push(predictedValue);
+
+        if(chart) chart.destroy();
+
+        chart = new Chart(document.getElementById("chart"), {
+            type:"line",
+            data:{
+                labels,
+                datasets:[
+                    {
+                        label:symbol+" Close",
+                        data:prices,
+                        borderWidth:2,
+                        borderColor:"blue"
+                    },
+                    {
+                        label:"Predicted",
+                        data:pricesPred,
+                        borderWidth:2,
+                        borderColor:"red",
+                        pointBackgroundColor:"red"
+                    }
+                ]
+            }
+        });
+    }
+
+    function reloadCurrent() {
+        if(currentSymbol) loadData(currentSymbol);
+    }
+</script>
+
+</body>
+</html>
