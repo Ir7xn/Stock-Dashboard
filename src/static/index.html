@@ -128,14 +128,15 @@ async function loadData(symbol) {
     const days = document.getElementById("dayFilter").value;
     document.getElementById("title").innerText = symbol + " Chart (" + days + " days)";
 
-    const res = await fetch("/data/" + symbol);
+    const base = window.location.origin;
+    const res = await fetch(base + "/data/" + symbol);
     const data = await res.json();
 
     let sliced = data.slice(0, days);
     const labels = sliced.map(row => row.date.slice(0,10)).reverse();
     const prices = sliced.map(row => row.close).reverse();
 
-    const predRes = await fetch("/predict/" + symbol);
+    const predRes = await fetch(base + "/predict/" + symbol);
     const predictedValue = (await predRes.json()).predicted_next_close;
 
     labels.push("NEXT");
