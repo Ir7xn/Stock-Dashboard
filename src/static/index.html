@@ -155,7 +155,7 @@ const base = window.location.origin;
     pricesPred.push(predictedValue);
 
     // 3) summary
-    const summaryRes = await fetch(base + " /summary/" + symbol);
+    const summaryRes = await fetch(base + "/summary/" + symbol);
     const summary = await summaryRes.json();
 
     document.getElementById("sum_high").innerText = "52-week High : " + summary.high_52.toFixed(2);
