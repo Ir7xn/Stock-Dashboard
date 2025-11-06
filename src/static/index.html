@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stock Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            margin:0;
+            font-family: 'Segoe UI', sans-serif;
+            background:#f5f7fa;
+            display:flex;
+        }
+
+        #sidebar {
+            width:220px;
+            background:white;
+            border-right:1px solid #dde3ea;
+            padding:20px;
+            box-shadow:4px 0 8px rgba(0,0,0,0.05);
+        }
+
+        #sidebar h3 {
+            margin-bottom:8px;
+            color:#222;
+            font-weight:600;
+        }
+
+        #sidebar button {
+            width:100%;
+            padding:10px;
+            margin-bottom:10px;
+            background:#e9eff5;
+            border:0;
+            border-radius:6px;
+            cursor:pointer;
+            font-size:14px;
+            font-weight:500;
+            transition:0.2s;
+        }
+        #sidebar button:hover { background:#d2e3ff; }
+
+        #sidebar select {
+            width:100%;
+            padding:10px;
+            border-radius:6px;
+            border:1px solid #ccd6dd;
+            background:white;
+            font-size:14px;
+            margin-top:8px;
+        }
+
+        #main { flex:1; padding:30px; }
+
+        #card {
+            background:white;
+            padding:20px;
+            border-radius:12px;
+            box-shadow:0 4px 10px rgba(0,0,0,0.08);
+            min-height:450px;
+        }
+
+        #title {
+            margin-bottom:22px;
+            font-weight:600;
+            color:#222;
+        }
+
+        #chart {
+            width:950px !important;
+            height:380px !important;
+            display:block;
+        }
+    </style>
+</head>
+
+<body>
+
+<div id="sidebar">
+    <h3>Companies</h3>
+    <button onclick="loadData('RELIANCE')">Reliance</button>
+    <button onclick="loadData('TCS')">TCS</button>
+    <button onclick="loadData('HDFC')">HDFC Bank</button>
+    <button onclick="loadData('SBIN')">SBI</button>
+
+    <h3 style="margin-top:25px;">Filter</h3>
+    <select id="dayFilter" onchange="reloadCurrent()">
+        <option value="30">Last 30 Days</option>
+        <option value="90">Last 90 Days</option>
+    </select>
+</div>
+
+<div id="main">
+<div id="card">
+
+    <h2 id="title">Select a Company</h2>
+
+    <div id="empty-state" style="text-align:center; padding:100px 40px;">
+        <svg width="140" height="140" viewBox="0 0 24 24" fill="none"
+             stroke="#8aa1b1" stroke-width="1.6" stroke-linecap="round"
+             stroke-linejoin="round" style="opacity:0.35;">
+            <path d="M3 3v18h18"/>
+            <path d="M18 17l-5-5-4 4L5 12"/>
+        </svg>
+        <h1 style="font-size:26px; font-weight:600; color:#212121; margin-top:25px;">
+            View Stock Analytics
+        </h1>
+        <p style="font-size:15px; color:#798b96; margin-top:8px;">
+            Choose any company on the sidebar
+        </p>
+    </div>
+
+    <canvas id="chart" height="380" style="display:none;"></canvas>
+
+</div>
+</div>
+
+<script>
+let chart;
+let currentSymbol = null;
+
+async function loadData(symbol) {
+
+    document.getElementById("empty-state").style.display = "none";
+    document.getElementById("chart").style.display = "block";
+
+    currentSymbol = symbol;
+    const days = document.getElementById("dayFilter").value;
+    document.getElementById("title").innerText = symbol + " Chart (" + days + " days)";
+
+    const res = await fetch("/data/" + symbol);
+    const data = await res.json();
+
+    let sliced = data.slice(0, days);
+    const labels = sliced.map(row => row.date.slice(0,10)).reverse();
+    const prices = sliced.map(row => row.close).reverse();
+
+    const predRes = await fetch("/predict/" + symbol);
+    const predictedValue = (await predRes.json()).predicted_next_close;
+
+    labels.push("NEXT");
+    const pricesPred = prices.slice();
+    pricesPred.push(predictedValue);
+
+    if(chart) chart.destroy();
+
+    chart = new Chart(document.getElementById("chart"), {
+        type:"line",
+        data:{
+            labels,
+            datasets:[
+                { label:symbol+" Close", data:prices, borderWidth:2, borderColor:"#3182ce", tension:0.3 },
+                { label:"Predicted", data:pricesPred, borderWidth:2, borderColor:"#e53e3e", pointBackgroundColor:"#e53e3e", tension:0.3 }
+            ]
+        },
+        options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            animation:{ duration:800, easing:"easeOutQuart" },
+            plugins:{ legend:{ position:"bottom" }},
+            scales:{ y:{ beginAtZero:false, grace:"10%" } }
+        }
+    });
+}
+
+function reloadCurrent(){ if(currentSymbol) loadData(currentSymbol); }
+</script>
+
+</body>
+</html>

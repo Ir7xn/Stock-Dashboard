@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, text
-from typing import List, Dict
 import os
 import numpy as np
 from sklearn.linear_model import LinearRegression
@@ -15,18 +16,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.mount("/", StaticFiles(directory="src/static", html=True), name="static")
 
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DB_PATH = os.path.join(ROOT, "data", "stocks.db")
 engine = create_engine(f"sqlite:///{DB_PATH}", future=True)
 
-# 1) /companies
+
+
+# HOME PAGE = serve index.html
+@app.get("/")
+def home():
+    index_path = os.path.join("src", "index.html")
+    return FileResponse(index_path)
+
+
 @app.get("/companies")
 def get_companies():
-    return ["RELIANCE"]
+    return ["RELIANCE", "TCS", "HDFC", "SBIN"]
 
-# 2) /data/{symbol}
+
 @app.get("/data/{symbol}")
 def get_data(symbol: str):
     with engine.begin() as conn:
@@ -35,11 +45,11 @@ def get_data(symbol: str):
             FROM prices
             WHERE symbol = :s
             ORDER BY date DESC
-            LIMIT 30
+            LIMIT 200
         """), {"s": symbol}).fetchall()
     return [dict(r._mapping) for r in rows]
 
-# 3) /summary/{symbol}
+
 @app.get("/summary/{symbol}")
 def summary(symbol: str):
     with engine.begin() as conn:
@@ -53,6 +63,7 @@ def summary(symbol: str):
         """), {"s": symbol}).fetchone()
     return dict(row._mapping)
 
+
 @app.get("/predict/{symbol}")
 def predict_next(symbol: str):
     with engine.begin() as conn:
@@ -64,19 +75,18 @@ def predict_next(symbol: str):
             LIMIT 30
         """), {"s": symbol}).fetchall()
 
-    closes = [float(r[0]) for r in rows]  # make sure they are floats
+    closes = [float(r[0]) for r in rows]
 
     if len(closes) < 2:
         return {"error": "Not enough data to predict"}
 
-    closes = closes[::-1]    # oldest → newest
+    closes = closes[::-1]
 
     X = np.arange(len(closes)).reshape(-1,1)
     y = np.array(closes)
 
     model = LinearRegression()
     model.fit(X, y)
-
     next_price = model.predict([[len(closes)]])[0]
 
     return {"predicted_next_close": round(float(next_price), 2)}
