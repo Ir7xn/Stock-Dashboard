@@ -16,28 +16,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.mount("/", StaticFiles(directory="src/static", html=True), name="static")
-
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DB_PATH = os.path.join(ROOT, "data", "stocks.db")
 engine = create_engine(f"sqlite:///{DB_PATH}", future=True)
 
-
-
-# HOME PAGE = serve index.html
-@app.get("/")
-def home():
-    index_path = os.path.join("src", "index.html")
-    return FileResponse(index_path)
-
-
-@app.get("/companies")
+# API ROUTES
+@app.get("/api/companies")
 def get_companies():
     return ["RELIANCE", "TCS", "HDFC", "SBIN"]
 
-
-@app.get("/data/{symbol}")
+@app.get("/api/data/{symbol}")
 def get_data(symbol: str):
     with engine.begin() as conn:
         rows = conn.execute(text("""
@@ -49,22 +38,7 @@ def get_data(symbol: str):
         """), {"s": symbol}).fetchall()
     return [dict(r._mapping) for r in rows]
 
-
-@app.get("/summary/{symbol}")
-def summary(symbol: str):
-    with engine.begin() as conn:
-        row = conn.execute(text("""
-            SELECT 
-              MAX(close) AS high_52,
-              MIN(close) AS low_52,
-              AVG(close) AS avg_close
-            FROM prices
-            WHERE symbol = :s
-        """), {"s": symbol}).fetchone()
-    return dict(row._mapping)
-
-
-@app.get("/predict/{symbol}")
+@app.get("/api/predict/{symbol}")
 def predict_next(symbol: str):
     with engine.begin() as conn:
         rows = conn.execute(text("""
@@ -76,7 +50,6 @@ def predict_next(symbol: str):
         """), {"s": symbol}).fetchall()
 
     closes = [float(r[0]) for r in rows]
-
     if len(closes) < 2:
         return {"error": "Not enough data to predict"}
 
@@ -90,3 +63,6 @@ def predict_next(symbol: str):
     next_price = model.predict([[len(closes)]])[0]
 
     return {"predicted_next_close": round(float(next_price), 2)}
+
+# STATIC LAST
+app.mount("/", StaticFiles(directory="src/static", html=True), name="static")
