@@ -112,6 +112,13 @@
 
     <canvas id="chart" height="380" style="display:none;"></canvas>
 
+    <div id="summaryBox" style="margin-top:20px; display:none; padding:18px; background:#f8fafc; border-radius:10px; border:1px solid #dde3ea; font-size:14px;">
+    <b>Summary:</b><br>
+    <span id="sum_high"></span><br>
+    <span id="sum_low"></span><br>
+    <span id="sum_avg"></span>
+</div>
+
 </div>
 </div>
 
@@ -128,21 +135,36 @@ async function loadData(symbol) {
     const days = document.getElementById("dayFilter").value;
     document.getElementById("title").innerText = symbol + " Chart (" + days + " days)";
 
-    const base = window.location.origin;
-    const res = await fetch(base + "/api/data/" + symbol);
+const base = window.location.origin;
+
+
+    // 1) main historical data
+    const res = await fetch(base + "/data/" + symbol);
     const data = await res.json();
 
     let sliced = data.slice(0, days);
     const labels = sliced.map(row => row.date.slice(0,10)).reverse();
     const prices = sliced.map(row => row.close).reverse();
 
-    const predRes = await fetch(base + "/api/predict/" + symbol);
+    // 2) prediction
+    const predRes = await fetch(base + "/predict/" + symbol);
     const predictedValue = (await predRes.json()).predicted_next_close;
 
     labels.push("NEXT");
     const pricesPred = prices.slice();
     pricesPred.push(predictedValue);
 
+    // 3) summary
+    const summaryRes = await fetch(base + " /summary/" + symbol);
+    const summary = await summaryRes.json();
+
+    document.getElementById("sum_high").innerText = "52-week High : " + summary.high_52.toFixed(2);
+    document.getElementById("sum_low").innerText  = "52-week Low  : " + summary.low_52.toFixed(2);
+    document.getElementById("sum_avg").innerText  = "Average Close: " + summary.avg_close.toFixed(2);
+
+    document.getElementById("summaryBox").style.display = "block";
+
+    // CHART
     if(chart) chart.destroy();
 
     chart = new Chart(document.getElementById("chart"), {
@@ -159,7 +181,7 @@ async function loadData(symbol) {
             maintainAspectRatio:false,
             animation:{ duration:800, easing:"easeOutQuart" },
             plugins:{ legend:{ position:"bottom" }},
-            scales:{ y:{ beginAtZero:false, grace:"10%" } }
+            scales:{ y:{ beginAtZero:false, grace:"10%" }}
         }
     });
 }
